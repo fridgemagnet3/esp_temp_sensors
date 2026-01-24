@@ -163,6 +163,8 @@ void setup()
 
 void loop() 
 {
+  static uint32_t Failed = 0u ;
+
   // Wait a few seconds between measurements.
   delay(5000);
 
@@ -232,7 +234,8 @@ void loop()
     Serial.printf("Humidity: %f\n",Humidity);
     Serial.printf("Heat Index: %f\n",HeatIndex);
 
-  
+    Failed = 0u ;
+
     // publish data
     if ( !MQclient.connected())
     {
@@ -261,6 +264,24 @@ void loop()
       // force a reconnect next time round
       MQclient.disconnect() ;
       Serial.println("Failed to publish one or messages") ;
+    }
+  }
+  else
+  {
+    Failed++ ;
+    // if had 5 successive sensor read failures, try resetting the library
+    if ( Failed == 5u )
+    {
+      Serial.println("Performing sensor reset") ;
+      DhtSensor.reset() ;
+      DhtSensor.setType(22);
+    }
+
+    // if had 10 successive failures, reset the board
+    if ( Failed == 10u )
+    {
+      Serial.println("Restarting board...") ;
+      ESP.restart() ;
     }
   }
 }
