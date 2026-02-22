@@ -2,6 +2,7 @@
 #include <WiFiClient.h>
 #include <dhtnew.h>
 #include <MQTT.h>
+#include <PicoSyslog.h>
 
 // board: ESP-32 C3 supermini (ESP32C3 Dev Module)
 
@@ -15,11 +16,13 @@
 #define STATUS_LED 8
 
 // Initialize DHT sensor.
-DHTNEW DhtSensor(DHTPIN);
+static DHTNEW DhtSensor(DHTPIN);
 
 // MQTT client instance
 static MQTTClient MQclient;
 static WiFiClient Net;
+
+static PicoSyslog::Logger syslog("loft-climate");
 
 static const char *HATempDiscovery = "\
 {\
@@ -29,7 +32,7 @@ static const char *HATempDiscovery = "\
   \"unit_of_measurement\": \"°C\",\
 	\"suggested_display_precision\": 1,\
 	\"platform\": \"sensor\",\
-	\"expire_after\": 60, \
+	\"expire_after\": 300, \
   \"unique_id\": \"esp_loft_climate_temperature\" \
 }" ;
 
@@ -41,7 +44,7 @@ static const char *HAHumidityDiscovery = "\
   \"unit_of_measurement\": \"%\",\
 	\"suggested_display_precision\": 1,\
 	\"platform\": \"sensor\",\
-	\"expire_after\": 60, \
+	\"expire_after\": 300, \
   \"unique_id\": \"esp_loft_climate_humidity\" \
 }" ;
 
@@ -77,6 +80,8 @@ void setup()
   Serial.println(F("WiFi connected"));
   Serial.println(LocalIp);
 
+  syslog.server = MQTT_BROKER;
+
   // configure the sensor as a DHT22
   DhtSensor.setType(22);
 
@@ -109,8 +114,17 @@ void loop()
     WiFi.reconnect();
     while (WiFi.status() != WL_CONNECTED)
     {
+      uint32_t Retries = 20 ;
+
       delay(500);
       Serial.print(F("."));
+
+      Retries-- ;
+      if ( !Retries )
+      {
+        Serial.println("Failed to reconnect to Wifi, restarting board...") ;
+        ESP.restart() ;
+      }
     }
   }
 
@@ -123,31 +137,31 @@ void loop()
       Serial.println("OK");
       break;
     case DHTLIB_ERROR_CHECKSUM:
-      Serial.println("Checksum error");
+      syslog.println("Checksum error");
       break;
     case DHTLIB_ERROR_TIMEOUT_A:
-      Serial.println("Time out A error");
+      syslog.println("Time out A error");
       break;
     case DHTLIB_ERROR_TIMEOUT_B:
-      Serial.println("Time out B error");
+      syslog.println("Time out B error");
       break;
     case DHTLIB_ERROR_TIMEOUT_C:
-      Serial.println("Time out C error");
+      syslog.println("Time out C error");
       break;
     case DHTLIB_ERROR_TIMEOUT_D:
-      Serial.println("Time out D error");
+      syslog.println("Time out D error");
       break;
     case DHTLIB_ERROR_SENSOR_NOT_READY:
-      Serial.println("Sensor not ready");
+      syslog.println("Sensor not ready");
       break;
     case DHTLIB_ERROR_BIT_SHIFT:
-      Serial.println("Bit shift error");
+      syslog.println("Bit shift error");
       break;
     case DHTLIB_WAITING_FOR_READ:
-      Serial.println("Waiting for read");
+      syslog.println("Waiting for read");
       break;
     default:
-      Serial.println("Unknown");
+      syslog.println("Unknown");
       break;
   }
 
@@ -206,7 +220,7 @@ void loop()
     // if had 10 successive failures, reset the board
     if ( Failed == 10u )
     {
-      Serial.println("Restarting board...") ;
+      syslog.println("Restarting board...") ;
       ESP.restart() ;
     }
   }
