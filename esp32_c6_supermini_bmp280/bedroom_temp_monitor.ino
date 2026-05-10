@@ -139,6 +139,10 @@ void setup()
       Serial.printf("Battery level: %s\n", BatLevelBuf) ;
       MQclient.publish("bedroom-climate/battery",BatLevelBuf,true,0) ;
     }
+    else
+    {
+      Serial.println("Could not fina a BMP280 sensor") ;
+    }
 
     // reset the device and shutdown the I2C interface
     // this stops the sensor drawing current whilst in deep sleep mode
@@ -146,10 +150,6 @@ void setup()
     I2CBME.end() ;
 
     MQclient.disconnect() ;
-  }
-  else
-  {
-    Serial.println("Could not find a BMP280 sensor") ;
   }
 
   Serial.println("Entering deep sleep mode");
