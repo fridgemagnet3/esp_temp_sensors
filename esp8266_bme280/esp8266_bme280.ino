@@ -191,6 +191,21 @@ void loop()
   // Read temperature as Celsius (the default)
   float Temperature = Bme280.readTemperature();
 
+  // can sometimes read stupid values so attempt to recover
+  // by resetting the device
+  if ( Temperature > 70 )
+  {
+    Serial.println("Detected stupid reading, attempting re-init to recover") ;
+    Bme280.init() ;
+    SensorDetected = Bme280.begin(IC2_SENSOR_ADDR,&I2CBME) ;
+    if ( !SensorDetected )
+    {
+      Serial.println("Failed to detect sensor after reset, resetting board") ;
+      ESP.restart() ;
+    }
+    return ;
+  }
+
   // Compute heat index in Celsius
   float HeatIndex = computeHeatIndex(Temperature, Humidity);
 
